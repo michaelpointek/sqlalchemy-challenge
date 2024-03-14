@@ -73,24 +73,42 @@ Active routes:
 @app.route("/api/v1.0/precipitation")
 def precipitation():
     # Calculate the date one year from 2017-08-23
-    one_year_ago = dt.date(2017,8,23) - dt.timedelta(days=365)
+    one_year_ago = dt.date(2017, 8, 23) - dt.timedelta(days=365)
     
     # Query to access the date and precipitation for the past year
-    prcp_data = session.query(Measurement.date, Measurement.prcp).\
-    filter(Measurement.date >= one_year_ago).order_by(Measurement.date).all()
+    session = get_session()
+    prcp_data = session.query(Measurement.date, Measurement.prcp)\
+                      .filter(Measurement.date >= one_year_ago)\
+                      .order_by(Measurement.date)\
+                      .all()
 
-    # List comprehension to create a key and value pair 
-    prcp_dict = [{"date": date, "percipitation": prcp} for date, prcp in prcp_data]
-    
-    # Output as JSON 
-    return jsonify(list(np.ravel(prcp_dict)))
+    # Constructing a dictionary with date as key and precipitation as value
+    prcp_dict = {date: prcp for date, prcp in prcp_data}
 
+    return jsonify(prcp_dict)
+
+# - Return a JSON list of all stations.
+@app.route("/api/v1.0/stations")
+def stations():
+    session = get_session()
+    # Query all stations
+    all_stations = session.query(Station.station, Station.name).all()
+    session.close()  # Close the session after use
+
+    # Constructing a list of dictionaries with station ID and name
+    stations_list = [{"station": station, "name": name} for station, name in all_stations]
+
+    return jsonify(stations_list)
 # - Query the dates and temperature observations of the most-active station
 #   for the previous year of data.
 # - Return a JSON list of temperature observations for the previous year.
 @app.route('/api/v1.0/tobs')
 def tobs():
     session = get_session()
+
+    # Calculate the date one year from 2017-08-23
+    one_year_ago = dt.date(2017, 8, 23) - dt.timedelta(days=365)
+
     stations_activity = session.query(Measurement.station, func.count(Measurement.station))\
         .group_by(Measurement.station)\
         .order_by(func.count(Measurement.station).desc())\
